@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ツムツム コイン効率計測</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f4f7fb;color:#263238}
+.container{max-width:760px;margin:0 auto;padding:24px 16px 40px}
+h1{text-align:center;margin:0 0 20px;font-size:28px}
+.card{background:white;border-radius:18px;padding:22px;margin:14px 0;box-shadow:0 4px 18px #00000012}
+.timer{text-align:center;font-size:64px;font-variant-numeric:tabular-nums;font-weight:700;letter-spacing:2px;margin:8px 0 18px}
+button{border:0;border-radius:12px;padding:12px 18px;font-size:16px;font-weight:700;cursor:pointer}
+.btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.start{background:#4caf50;color:white}.stop{background:#ef5350;color:white}.reset{background:#e0e0e0}
+label{display:block;font-weight:700;margin:12px 0 6px}
+input[type=number]{width:100%;padding:12px;border:1px solid #ccd5df;border-radius:10px;font-size:18px}
+.items{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.item{border:1px solid #dbe2e8;border-radius:12px;padding:12px;display:flex;align-items:center;gap:9px}
+.item input{width:20px;height:20px}
+.price{margin-left:auto;color:#667;font-size:14px}
+.result{font-size:34px;font-weight:800;text-align:center;margin:12px 0}
+.sub{text-align:center;color:#68737d}
+.calc{background:#eef7ff}
+@media(max-width:560px){.items{grid-template-columns:1fr}.timer{font-size:48px}}
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tab{flex:1;background:#e9eef4;color:#445}
+.tab.active{background:#263238;color:white}
+.save{background:#4c8bf5;color:white;margin-top:14px;width:100%}
+.record{border:1px solid #dbe2e8;border-radius:12px;padding:14px;margin:10px 0}
+.record-top{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.record-name{font-weight:800;font-size:18px}
+.record-eff{font-weight:800;font-size:22px}
+.record-meta{color:#68737d;font-size:14px;margin-top:6px}
+.delete{background:#eee;color:#555;padding:7px 10px;font-size:13px}
+.empty{text-align:center;color:#68737d;padding:20px}
+.measure-counts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.count-btn{background:#e9eef4;color:#445}.count-btn.active{background:#263238;color:#fff}.play-label{text-align:center;font-weight:800;font-size:18px;margin:18px 0 0}.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.summary-grid div{background:#f8fafc;border-radius:12px;padding:12px;text-align:center}.summary-grid span{display:block;color:#68737d;font-size:13px}.summary-grid strong{display:block;font-size:20px;margin-top:4px}@media(max-width:560px){.measure-counts{grid-template-columns:repeat(2,1fr)}.summary-grid{grid-template-columns:1fr}} 
+.coin-inputs-grid{display:grid;gap:8px;margin-top:8px}
+.coin-input-cell{text-align:center}
+.coin-input-cell span{display:block;font-weight:700;font-size:13px;margin-bottom:4px}
+.coin-input-cell input{width:100%;box-sizing:border-box;padding:9px 5px;font-size:16px;text-align:center}
+
+/* PC横長レイアウト */
+@media(min-width:900px){
+  .container{max-width:1400px;padding:24px 28px 40px}
+  #measurePage{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(360px,.85fr);gap:18px;align-items:start}
+  #measurePage>.measure-main{grid-column:1}
+  #quickHistory{grid-column:2;grid-row:1 / span 6;position:sticky;top:18px}
+}
+.measure-main{min-width:0}
+.quick-history{min-height:520px}
+.quick-history-list{display:flex;flex-direction:column;gap:9px;max-height:650px;overflow:auto}
+.quick-entry{border:1px solid #dbe2e8;border-radius:12px;padding:11px 13px;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.quick-entry .q-left{min-width:0}
+.quick-entry .q-num{font-size:12px;color:#68737d}
+.quick-entry .q-coins{font-weight:800;font-size:17px}
+.quick-entry .q-time{font-size:12px;color:#68737d}
+.quick-entry .q-eff{font-size:22px;font-weight:900;white-space:nowrap}
+.quick-entry .q-unit{font-size:11px;color:#68737d;text-align:right}
+.quick-ok{width:100%;margin-top:10px;background:#263238;color:#fff}
+.quick-help{font-size:13px;color:#68737d;margin:7px 0 0}
+.coin-submit-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.coin-submit-row input{flex:1}
+.coin-ok{background:#4c8bf5;color:#fff;white-space:nowrap}
+@media(max-width:899px){#quickHistory{margin-top:14px}.quick-history{min-height:auto}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🪙 ツムツム コイン効率計測</h1>
+<div class="tabs">
+  <button id="tabMeasure" class="tab active" onclick="showPage('measure')">計測</button>
+  <button id="tabRecords" class="tab" onclick="showPage('records')">記録</button>
+</div>
+
+<div id="measurePage">
+<div class="measure-main">
+<section class="card"><h2>⏱ 計測</h2>
+<div class="measure-counts">
+<button class="count-btn active" data-count="1" onclick="setPlayCount(1)">1プレイ</button>
+<button class="count-btn" data-count="3" onclick="setPlayCount(3)">3プレイ</button>
+<button class="count-btn" data-count="5" onclick="setPlayCount(5)">5プレイ</button>
+<button class="count-btn" data-count="10" onclick="setPlayCount(10)">10プレイ</button>
+</div>
+<div id="playLabel" class="play-label">1プレイ計測</div><div id="timer" class="timer">00:00.00</div>
+<div class="btns"><button class="start" onclick="startTimer()">開始</button><button class="stop" onclick="stopTimer()">停止</button><button class="reset" onclick="resetTimer()">リセット</button></div></section>
+
+<section class="card"><h2>🎫 使用アイテム</h2><p class="sub">選択したアイテムは計測したプレイ数分の料金になります。</p><div class="items">
+<label class="item"><input type="checkbox" data-price="1800" onchange="calculate()">5→4<span class="price">1,800</span></label>
+<label class="item"><input type="checkbox" data-price="500" onchange="calculate()">+Coin<span class="price">500</span></label>
+<label class="item"><input type="checkbox" data-price="500" onchange="calculate()">+Score<span class="price">500</span></label>
+<label class="item"><input type="checkbox" data-price="1200" onchange="calculate()">+Combo<span class="price">1,200</span></label>
+<label class="item"><input type="checkbox" data-price="1500" onchange="calculate()">+Bomb<span class="price">1,500</span></label>
+<label class="item"><input type="checkbox" data-price="1000" onchange="calculate()">+Time<span class="price">1,000</span></label>
+<label class="item"><input type="checkbox" data-price="500" onchange="calculate()">+Exp<span class="price">500</span></label>
+</div><p>1プレイあたりのアイテム代：<strong id="itemCost">0</strong> コイン</p><p>今回のアイテム代：<strong id="totalItemCost">0</strong> コイン</p></section>
+
+<section class="card"><h2>🪙 プレイごとのコイン</h2>
+<div id="coinInputs"></div>
+<p class="quick-help">コインを入力して Enter または OK を押すと、右側に効率を記録して入力欄を0にします。</p>
+</section>
+
+<section class="card calc"><h2>📈 計測結果</h2><div class="summary-grid"><div><span>合計コイン</span><strong id="totalCoins">0</strong></div><div><span>平均コイン</span><strong id="averageCoins">0</strong></div><div><span>経過時間</span><strong id="elapsedText">00:00.00</strong></div></div>
+<div id="result" class="result">—</div><div class="sub">コイン効率（1分あたり）</div><div id="detail" class="sub">タイマーを開始してプレイしてください</div><button class="save" onclick="goToSave()">この計測を記録する</button></section>
+</div>
+
+<section id="quickHistory" class="card quick-history">
+<h2>📊 最近のコイン効率</h2>
+<div class="sub">Enter / OKした順に新しいものが上に追加されます。</div>
+<div id="quickHistoryList" class="quick-history-list" style="margin-top:12px"></div>
+<button class="quick-ok" onclick="submitCoinInput()">OK</button>
+</section>
+</div>
+
+<div id="recordsPage" style="display:none">
+<section class="card">
+  <h2>📝 プレイ記録</h2>
+
+  <label for="recordName">記録名（ツム名など）</label>
+  <input id="recordName" type="text" placeholder="例：ガストン">
+
+  <label>使用アイテム</label>
+  <div class="items record-items">
+    <label class="item"><input type="checkbox" data-record-item="5→4">5→4<span class="price">1,800</span></label>
+    <label class="item"><input type="checkbox" data-record-item="+Coin">+Coin<span class="price">500</span></label>
+    <label class="item"><input type="checkbox" data-record-item="+Score">+Score<span class="price">500</span></label>
+    <label class="item"><input type="checkbox" data-record-item="+Combo">+Combo<span class="price">1,200</span></label>
+    <label class="item"><input type="checkbox" data-record-item="+Bomb">+Bomb<span class="price">1,500</span></label>
+    <label class="item"><input type="checkbox" data-record-item="+Time">+Time<span class="price">1,000</span></label>
+    <label class="item"><input type="checkbox" data-record-item="+Exp">+Exp<span class="price">500</span></label>
+  </div>
+
+  <button class="save" onclick="saveRecord()">このプレイを記録する</button>
+</section>
+
+<section class="card">
+  <h2>📊 記録一覧</h2>
+  <div id="records"></div>
+</section>
+</div>
+
+<script>
+let startTime=0, elapsed=0, timerId=null, running=false, playCount=1, lastQuickElapsed=0, quickCount=0;
+
+function formatTime(ms){
+  let t=Math.floor(ms/1000), m=Math.floor(t/60), s=t%60, cs=Math.floor(ms%1000/10);
+  return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+'.'+String(cs).padStart(2,'0');
+}
+
+function setPlayCount(n){
+  // 変更前の入力値を保持してから作り直す
+  const old=[...document.querySelectorAll('#coinInputs input')].map(x=>x.value);
+  playCount=n;
+  document.querySelectorAll('.count-btn').forEach(b=>{
+    b.classList.toggle('active', +b.dataset.count===n);
+  });
+  document.getElementById('playLabel').textContent=n+'プレイ計測';
+  buildCoinInputs(old);
+  calculate();
+}
+
+function buildCoinInputs(old=[]){
+  const box=document.getElementById('coinInputs');
+  box.innerHTML='';
+  box.className='coin-inputs-grid';
+  box.style.gridTemplateColumns=playCount<=5
+    ? `repeat(${playCount},minmax(0,1fr))` : 'repeat(5,minmax(0,1fr))';
+  const nums=['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];
+  for(let i=0;i<playCount;i++){
+    const cell=document.createElement('div'); cell.className='coin-input-cell';
+    const num=document.createElement('span'); num.textContent=nums[i];
+    const row=document.createElement('div'); row.className='coin-submit-row';
+    const input=document.createElement('input');
+    input.type='number'; input.min='0'; input.step='1'; input.inputMode='numeric';
+    input.placeholder='コイン'; input.value=old[i] || ''; input.dataset.playCoin='1';
+    input.addEventListener('input',calculate);
+    input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); submitCoinInput(input); }});
+    row.appendChild(input);
+    cell.append(num,row); box.append(cell);
+  }
+}
+
+
+function submitCoinInput(sourceInput=null){
+  const inputs=[...document.querySelectorAll('#coinInputs input[data-play-coin]')];
+  let input=sourceInput || document.activeElement;
+  if(!input || !input.matches('#coinInputs input[data-play-coin]')) input=inputs.find(x=>Number(x.value)>0) || inputs[0];
+  const coins=Number(input.value)||0;
+  if(coins<=0){ input.focus(); return; }
+  if(!running && elapsed<=0){ alert('先に「開始」を押してください'); input.focus(); return; }
+  const currentElapsed=elapsed;
+  const intervalSec=(currentElapsed-lastQuickElapsed)/1000;
+  if(intervalSec<=0){ input.focus(); return; }
+  const {costPerPlay}=getMeasureItems();
+  const efficiency=(coins*1.3-costPerPlay)/intervalSec*60;
+  quickCount++;
+  addQuickHistory(coins, intervalSec, efficiency);
+  lastQuickElapsed=currentElapsed;
+  input.value='0';
+  input.focus();
+  calculate();
+}
+
+function addQuickHistory(coins, seconds, efficiency){
+  const box=document.getElementById('quickHistoryList');
+  const row=document.createElement('div'); row.className='quick-entry';
+  row.innerHTML=`<div class="q-left"><div class="q-num">#${quickCount}・${new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</div><div class="q-coins">${coins.toLocaleString()} コイン</div><div class="q-time">${seconds.toFixed(2)} 秒</div></div><div><div class="q-eff">${Math.round(efficiency).toLocaleString()}</div><div class="q-unit">コイン/分</div></div>`;
+  box.prepend(row);
+}
+function getCoins(){
+  return [...document.querySelectorAll('#coinInputs input[data-play-coin]')]
+    .map(x=>Number(x.value)||0);
+}
+
+function getMeasureItems(){
+  const items=[];
+  let costPerPlay=0;
+  document.querySelectorAll('#measurePage .item input[type="checkbox"]').forEach(x=>{
+    if(x.checked){
+      costPerPlay+=Number(x.dataset.price)||0;
+      items.push(x.parentElement.textContent.trim().replace(/[0-9,]+$/,'').trim());
+    }
+  });
+  return {items,costPerPlay};
+}
+
+function calculate(){
+  const coins=getCoins();
+  const totalCoins=coins.reduce((a,b)=>a+b,0);
+  const average=playCount ? totalCoins/playCount : 0;
+  const {items,costPerPlay}=getMeasureItems();
+  const totalCost=costPerPlay*playCount;
+  const seconds=elapsed/1000;
+
+  document.getElementById('totalCoins').textContent=totalCoins.toLocaleString();
+  document.getElementById('averageCoins').textContent=average.toLocaleString(undefined,{maximumFractionDigits:1});
+  document.getElementById('elapsedText').textContent=formatTime(elapsed);
+  document.getElementById('itemCost').textContent=costPerPlay.toLocaleString();
+  document.getElementById('totalItemCost').textContent=totalCost.toLocaleString();
+
+  if(seconds<=0 || totalCoins<=0){
+    document.getElementById('result').textContent='—';
+    document.getElementById('detail').textContent='タイマーを開始してプレイしてください';
+    return;
+  }
+
+  const net=totalCoins*1.3-totalCost;
+  const perMin=net/seconds*60;
+  document.getElementById('result').textContent=Math.round(perMin).toLocaleString();
+  document.getElementById('detail').textContent=
+    `合計 ${totalCoins.toLocaleString()} コイン − アイテム代 ${totalCost.toLocaleString()} コイン`;
+}
+
+function startTimer(){
+  if(running) return;
+  running=true;
+  if(elapsed===0) lastQuickElapsed=0;
+  startTime=Date.now()-elapsed;
+  timerId=setInterval(()=>{
+    elapsed=Date.now()-startTime;
+    document.getElementById('timer').textContent=formatTime(elapsed);
+    calculate();
+  },50);
+}
+
+function stopTimer(){
+  if(!running) return;
+  elapsed=Date.now()-startTime;
+  running=false;
+  clearInterval(timerId);
+  timerId=null;
+  document.getElementById('timer').textContent=formatTime(elapsed);
+  calculate();
+}
+
+function resetTimer(){
+  running=false;
+  clearInterval(timerId);
+  timerId=null;
+  elapsed=0;
+  startTime=0;
+  lastQuickElapsed=0;
+  quickCount=0;
+  document.getElementById('quickHistoryList').innerHTML='';
+  document.getElementById('timer').textContent=formatTime(0);
+  calculate();
+}
+
+function showPage(page){
+  const measure=document.getElementById('measurePage');
+  const records=document.getElementById('recordsPage');
+  const tm=document.getElementById('tabMeasure');
+  const tr=document.getElementById('tabRecords');
+
+  measure.style.display=page==='measure'?'block':'none';
+  records.style.display=page==='records'?'block':'none';
+  tm.classList.toggle('active',page==='measure');
+  tr.classList.toggle('active',page==='records');
+
+  if(page==='records') renderRecords();
+}
+
+function goToSave(){
+  showPage('records');
+  const {items}=getMeasureItems();
+  document.querySelectorAll('[data-record-item]').forEach(x=>{
+    x.checked=items.includes(x.dataset.recordItem);
+  });
+}
+
+function currentData(){
+  const coins=getCoins();
+  const coinsTotal=coins.reduce((a,b)=>a+b,0);
+  const {items,costPerPlay}=getMeasureItems();
+  const cost=costPerPlay*playCount;
+  const seconds=elapsed/1000;
+
+  if(elapsed<=0 || coinsTotal<=0) return null;
+
+  const net=coinsTotal*1.3-cost;
+  const perMin=net/seconds*60;
+
+  return {
+    coinsTotal,
+    averageCoins:coinsTotal/playCount,
+    playCount,
+    cost,
+    seconds,
+    perMin,
+    items
+  };
+}
+
+function saveRecord(){
+  const name=document.getElementById('recordName').value.trim();
+  const data=currentData();
+
+  if(!name){alert('記録名を入力してください');return;}
+  if(!data){alert('タイマーとプレイごとの素コインを入力してから記録してください');return;}
+
+  const records=JSON.parse(localStorage.getItem('tsumRecords')||'[]');
+  records.unshift({
+    id:Date.now(),
+    name,
+    ...data,
+    date:new Date().toLocaleString('ja-JP')
+  });
+  localStorage.setItem('tsumRecords',JSON.stringify(records));
+
+  document.getElementById('recordName').value='';
+  renderRecords();
+  alert('記録しました！');
+}
+
+function renderRecords(){
+  const box=document.getElementById('records');
+  const records=JSON.parse(localStorage.getItem('tsumRecords')||'[]');
+
+  if(!records.length){
+    box.innerHTML='<div class="empty">まだ記録がありません</div>';
+    return;
+  }
+
+  box.innerHTML=records.map(r=>`
+    <div class="record">
+      <div class="record-top">
+        <div>
+          <div class="record-name">${escapeHtml(r.name)}</div>
+          <div class="record-meta">
+            ${r.date} ／ ${(r.playCount||1)}プレイ ／ ${Number(r.seconds).toFixed(2)}秒 ／
+            合計コイン ${Number(r.coinsTotal ?? r.coins ?? 0).toLocaleString()} ／
+            アイテム代 ${Number(r.cost||0).toLocaleString()}
+          </div>
+          <div class="record-meta">
+            ${(r.items||[]).length ? escapeHtml(r.items.join('、')) : 'アイテムなし'}
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div class="record-eff">${Math.round(Number(r.perMin)||0).toLocaleString()}</div>
+          <div class="record-meta">コイン/分</div>
+          <button class="delete" onclick="deleteRecord(${r.id})">削除</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function deleteRecord(id){
+  const records=JSON.parse(localStorage.getItem('tsumRecords')||'[]')
+    .filter(r=>r.id!==id);
+  localStorage.setItem('tsumRecords',JSON.stringify(records));
+  renderRecords();
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,m=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
+}
+
+buildCoinInputs();
+calculate();
+renderRecords();
+</script>
+</body>
+</html>
